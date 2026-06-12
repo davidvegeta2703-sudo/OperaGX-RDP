@@ -1,4 +1,4 @@
-name: Cloud PC + AnyDesk + Opera GX (Welcome Bypass & Rewards Auto-Active)
+name: Cloud PC + AnyDesk + Opera GX (Final Configuration Layout)
 
 on:
   workflow_dispatch:
@@ -57,31 +57,34 @@ jobs:
           Start-Process -FilePath $ad -ArgumentList "--restart-service" -Wait
           Start-Sleep -Seconds 5
 
-      - name: Minimize Running Infrastructure Windows
+      - name: Clean and Hide Active Infrastructure Windows
         run: |
-          Write-Host "Sending active command prompt windows to the taskbar tray..."
-          $shell = New-Object -ComObject Shell.Application
-          $shell.MinimizeAll()
+          Write-Host "Using system API utilities to safely hide background consoles..."
+          # Downloads a tiny window manager binary to shift the host agent completely out of view without affecting pagefiles
+          $cmdowUrl = "https://www.commandline.co.uk/cmdow/cmdow.zip"
+          $zipDst = "$env:TEMP\cmdow.zip"
+          Invoke-WebRequest -Uri $cmdowUrl -OutFile $zipDst
+          Expand-Archive -Path $zipDst -DestinationPath "$env:TEMP\cmdow" -Force
+          
+          # Instructs the runner window to hide completely into a hidden state
+          Start-Process "$env:TEMP\cmdow\cmdow.exe" -ArgumentList "@ /hid" -WindowStyle Hidden -ErrorAction SilentlyContinue
 
       - name: Optimize Resolution for Mobile Display
         run: |
           Write-Host "Forcing resolution calibration matrix..."
           Set-DisplayResolution -Width 1280 -Height 720 -Force -ErrorAction SilentlyContinue
 
-      - name: Pre-Inject User Profiles & Install Opera GX
+      - name: Pre-Inject Master Rules & Install Opera GX
         run: |
-          Write-Host "Writing multi-directory preferences to completely bypass welcome pages..."
-          $paths = @(
-              "$env:APPDATA\Opera Software\Opera GX Stable",
-              "$env:LOCALAPPDATA\Opera Software\Opera GX Stable"
-          )
+          Write-Host "Injecting structural Master Preferences to enforce settings instantly..."
+          # Creating the absolute master directory template path inside Program Files
+          $masterDir = "C:\Program Files\Opera GX"
+          if (-not (Test-Path $masterDir)) { New-Item -ItemType Directory -Path $masterDir -Force | Out-Null }
           
-          $prefData = '{"gxa":{"rewards_activated":true,"sidebar_icon_enabled":true},"browser":{"has_seen_welcome_page":true,"welcome_page_onboarding_done":true}}'
-          
-          foreach ($folder in $paths) {
-              if (-not (Test-Path $folder)) { New-Item -ItemType Directory -Path $folder -Force | Out-Null }
-              Set-Content -Path "$folder\Preferences" -Value $prefData -Force
-          }
+          # Master preferences bypass all user folders and lock configuration on installation
+          $masterPrefFile = "$masterDir\master_preferences"
+          $prefData = '{"gxa":{"rewards_activated":true,"sidebar_icon_enabled":true},"browser":{"has_seen_welcome_page":true,"welcome_page_onboarding_done":true},"distribution":{"skip_first_run_ui":true,"show_welcome_page":false}}'
+          Set-Content -Path $masterPrefFile -Value $prefData -Force
           
           Write-Host "Fetching stable installer package..."
           $url = "https://net.geo.opera.com/opera_gx/stable/windows?utm_source=inf&utm_medium=gx"
@@ -94,17 +97,16 @@ jobs:
           $userDesktop = "$env:USERPROFILE\Desktop"
           
           if (Test-Path "$userDesktop\Opera GX.lnk") {
-              Move-Item -Path "$userDesktop\Opera GX.lnk" -Destination $publicDesktop -Force -ErrorAction SilentlyContinue
-          }
+              Move-Item -Path "$userDesktop\Opera GX.lnk" -Destination $publicDesktop -Force -ErrorAction SilentlyContinue }
           
-          Write-Host "Configuring launch arguments to force gift icon activation..."
-          $operaExe = "$env:ProgramFiles\Opera GX\opera.exe"
-          if (-not (Test-Path $operaExe)) { $operaExe = "$env:ProgramFiles (x86)\Opera GX\opera.exe" }
+          Write-Host "Configuring explicit launch arguments to force gift icon activation..."
+          $operaExe = "C:\Program Files\Opera GX\opera.exe"
+          if (-not (Test-Path $operaExe)) { $operaExe = "C:\Program Files (x86)\Opera GX\opera.exe" }
           
           $WshShell = New-Object -ComObject WScript.Shell
           $Shortcut = $WshShell.CreateShortcut("$publicDesktop\Opera GX Browser.lnk")
           $Shortcut.TargetPath = $operaExe
-          # Combines the partner tracking id bypass with explicit runtime feature switches
+          # Direct browser core flags forcing the sidebar configuration and rewards item to initialize
           $Shortcut.Arguments = "--partner-id=forsaken --enable-features=GXRewards,GXRewardsSidebarItem --with-feature:gx-rewards=1"
           $Shortcut.Save()
 
