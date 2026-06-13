@@ -77,13 +77,21 @@ jobs:
           Write-Host "Authenticating tunnel framework..."
           ngrok config add-authtoken "${{ inputs.ngrok_token }}"
           
-          Write-Host "Installing ngrok as a persistent Windows Service..."
-          ngrok service install --config "$env:USERPROFILE\AppData\Local\ngrok\ngrok.yml" --log=stdout
+          Write-Host "Writing tunnel configuration matrix..."
+          # This explicitly defines the RDP tunnel profile inside the ngrok configuration file
+          $configPath = "$env:USERPROFILE\AppData\Local\ngrok\ngrok.yml"
+          @'
+          tunnels:
+            rdp:
+              proto: tcp
+              addr: 3389
+          '@ | Out-File -FilePath $configPath -Append -Encoding utf8
           
-          Write-Host "Starting tunnel service over RDP port 3389..."
-          ngrok service start --tunnel=tcp:3389
+          Write-Host "Spawning persistent background tunnel..."
+          # Starting it using --all tells ngrok to start the RDP tunnel defined above in the background
+          Start-Process -FilePath "ngrok" -ArgumentList "start", "--all", "--config=$configPath" -NoNewWindow
           
-          Write-Host "Waiting for service layer to initialize..."
+          Write-Host "Waiting for tunnel layer to stabilize..."
           Start-Sleep -Seconds 10
 
       - name: Download & Force Consumer Build of Opera GX
