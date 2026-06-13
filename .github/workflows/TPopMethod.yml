@@ -1,4 +1,4 @@
-name: Cloud PC + Web Browser Link + Opera GX (UltraVNC Stable)
+name: Cloud PC + Web Browser Link + Opera GX (Passwordless TightVNC Fix)
 
 on:
   workflow_dispatch:
@@ -27,39 +27,31 @@ jobs:
       - name: Force Full HD Resolution
         run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
 
-      - name: Install and Configure UltraVNC (Zero Prompts Passwordless)
+      - name: Install and Configure TightVNC Server (Empty Encryption Profile)
         run: |
-          # Download the stable UltraVNC setup engine
-          Invoke-WebRequest -Uri "https://support.uvnc.com/download/1436/UltraVNC_1_4_36_X64_Setup.exe" -OutFile "$env:TEMP\ultravnc.exe"
-          
-          # Install silently without registering confusing system loops
-          Start-Process "$env:TEMP\ultravnc.exe" -ArgumentList "/verysilent", "/norestart", "/loadinf=`"setup.inf`"" -Wait
+          Invoke-WebRequest -Uri "https://www.tightvnc.com/download/2.8.84/tightvnc-2.8.84-gpl-setup-64bit.msi" -OutFile "$env:TEMP\tightvnc.msi"
+          # Install cleanly as a persistent headless background system service
+          Start-Process msiexec.exe -ArgumentList "/i `"$env:TEMP\tightvnc.msi`" /quiet /qn SERVER_REGISTER_AS_SERVICE=1" -Wait
           
           Start-Sleep -Seconds 5
+          $vncPath = "HKLM:\SOFTWARE\TightVNC\Server"
+          if (Test-Path $vncPath) {
+              # Completely remove explicit login challenges by passing empty data arrays
+              Set-ItemProperty -Path $vncPath -Name "AuthRequired" -Value 0 -Type DWord
+              Set-ItemProperty -Path $vncPath -Name "AuthType" -Value 1 -Type DWord
+              
+              # Pre-populate empty 8-byte security keys to stop the program from auto-generating a random fallback password
+              [byte[]]$emptyHex = 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+              Set-ItemProperty -Path $vncPath -Name "Password" -Value $emptyHex -Type Binary
+              Set-ItemProperty -Path $vncPath -Name "ControlPassword" -Value $emptyHex -Type Binary
+              
+              # Open internal port listeners wide open so the loopback proxy works flawlessly
+              Set-ItemProperty -Path $vncPath -Name "AllowLoopback" -Value 1 -Type DWord
+              Set-ItemProperty -Path $vncPath -Name "AcceptLocalConnections" -Value 1 -Type DWord
+          }
           
-          # Target the configuration layout directory
-          $uvncPath = "C:\Program Files\uvnc bvba\UltraVNC"
-          Ensure-Toggle-Directory -Path $uvncPath
-          
-          # Create a bulletproof text configuration that forces absolute open access
-          $iniContent = @"
-          [UltraVNC]
-          AuthRequired=0
-          AuthType=0
-          AllowLoopback=1
-          LoopbackOnly=0
-          AcceptLocalConnections=1
-          QuerySetting=2
-          Primary=1
-          Secondary=0
-          PortNumber=5900
-          "@
-          
-          # Save config cleanly to bypass Windows Registry locks
-          Set-Content -Path "$uvncPath\ultravnc.ini" -Value $iniContent -Force
-          
-          # Run the engine cleanly as an immediate background job instance
-          Start-Process "$uvncPath\winvnc.exe" -ArgumentList "-run"
+          # Force refresh the system daemon to accept the wide open access policy without hanging
+          Restart-Service -Name "TightVNC Server" -Force
 
       - name: Download & Force Consumer Build of Opera GX
         run: |
@@ -100,7 +92,7 @@ jobs:
               Write-Host "      WEB-BROWSER CLOUD PC IS READY TO CONNECT      "
               Write-Host "===================================================="
               Write-Host " CLICK LINK: $FinalUrl"
-              Write-Host " SECURITY  : Password disabled. Click 'Connect' to open."
+              Write-Host " SECURITY  : Password disabled. Press 'Connect' button directly."
               Write-Host "===================================================="
           } else {
               Write-Error "CRITICAL: Dynamic gateway assignment timed out."
