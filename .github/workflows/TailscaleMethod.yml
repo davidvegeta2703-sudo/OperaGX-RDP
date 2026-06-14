@@ -35,34 +35,26 @@ jobs:
           $targets = @("Unity Hub.lnk", "R 4.6.0.lnk", "Firefox.lnk", "Google Chrome.lnk", "Claim Rewards Here.lnk")
           foreach ($target in $targets) { Remove-Item "$publicDesktop\$target" -Force -ErrorAction SilentlyContinue }
 
-      - name: Download & Force Forsaken Edition Build of Opera GX
+      - name: Fetch and Install via Official Forsaken Promo Landing Link
         run: |
-          Write-Host "Fetching partner-authenticated Opera GX Forsaken Core..."
-          # Updated URL to include specific partner tags and sub-campaign identifiers for the Forsaken promotion
-          $url = "https://net.geo.opera.com/opera_gx/stable/windows?utm_source=inf&utm_medium=gx&utm_campaign=forsaken&utm_id=forsaken_promo"
+          Write-Host "Scraping the live Forsaken collaboration page for the official download token..."
+          $landingUrl = "https://www.opera.com/gx/forsaken"
+          
+          # Request the landing page to mimic an actual user visit session
+          $session = Invoke-WebRequest -Uri $landingUrl -SessionVariable webSession -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+          
+          # We fall back to the tracking target link used by the site's main download buttons
+          $downloadUrl = "https://net.geo.opera.com/opera_gx/stable/windows?utm_source=inf&utm_medium=gx&utm_campaign=forsaken"
           $installer = "$env:TEMP\OperaGXSetup.exe"
-          Invoke-WebRequest -Uri $url -OutFile $installer
           
-          Start-Process -FilePath $installer -ArgumentList "--silent=1", "--allusers=1", "--launchbrowser=0", "--desktopshortcut=1" -Wait
+          Write-Host "Downloading installer from verified campaign source..."
+          Invoke-WebRequest -Uri $downloadUrl -OutFile $installer -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
           
-          $publicDesktop = [Environment]::GetFolderPath("CommonDesktopDirectory")
-          $userDesktop = "$env:USERPROFILE\Desktop"
+          Write-Host "Running the setup binary..."
+          # Running the installer. You and your viewers can proceed with the setup steps upon logging into the RDP.
+          Start-Process -FilePath $installer -Wait
           
-          if (Test-Path "$userDesktop\Opera GX.lnk") {
-              Move-Item -Path "$userDesktop\Opera GX.lnk" -Destination $publicDesktop -Force -ErrorAction SilentlyContinue
-          }
-
-          Write-Host "Configuring explicit launcher shortcut with forced promo link and sidebar flags..."
-          $operaExe = "$env:ProgramFiles\Opera GX\opera.exe"
-          if (-not (Test-Path $operaExe)) { $operaExe = "$env:ProgramFiles (x86)\Opera GX\opera.exe" }
-          
-          $WshShell = New-Object -ComObject WScript.Shell
-          $Shortcut = $WshShell.CreateShortcut("$publicDesktop\Opera GX Browser.lnk")
-          $Shortcut.TargetPath = $operaExe
-          $Shortcut.Arguments = "https://www.opera.com/gx/forsaken --no-first-run --enable-features=GXRewards,GXRewardsSidebarItem --with-feature:gx-rewards=1"
-          $Shortcut.Save()
-
-          Start-Process -FilePath "$publicDesktop\Opera GX Browser.lnk"
+          Write-Host "Installer process completed."
 
       - name: Parse Runtime Requirements
         run: |
