@@ -15,7 +15,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 190
     env:
-      ANYDESK_PASS: Pass@1234
+      ANYDESK_PASS: Pass1234
       RUNTIME_MINUTES: 180
 
     steps:
@@ -33,7 +33,7 @@ jobs:
 
       - name: Dismiss Annoying Windows System Properties Popups
         run: |
-          Write-Host "Killing background error popups..."
+          Write-Host "Killing background paging file error popups..."
           Stop-Process -Name "systempropertiesadvanced" -Force -ErrorAction SilentlyContinue
           Stop-Process -Name "systempropertiescomputername" -Force -ErrorAction SilentlyContinue
 
@@ -73,15 +73,13 @@ jobs:
 
       - name: Minimize Running Infrastructure Windows
         run: |
-          Write-Host "Sending active command prompt windows to the taskbar tray..."
           $shell = New-Object -ComObject Shell.Application
           $shell.MinimizeAll()
 
-      - name: Optimize Resolution for Mobile Display (Taller Aspect Ratio)
+      - name: Optimize Resolution for Mobile Display (High-Res Taller Screen)
         run: |
-          Write-Host "Forcing taller resolution matrix for easier scrolling..."
-          # Adjusted height from 720 to 960 to provide extra vertical real estate
-          Set-DisplayResolution -Width 1280 -Height 960 -Force -ErrorAction SilentlyContinue
+          Write-Host "Forcing 1600x1200 resolution matrix for enhanced clarity and scrolling..."
+          Set-DisplayResolution -Width 1600 -Height 1200 -Force -ErrorAction SilentlyContinue
 
       - name: Download & Force Consumer Build of Opera GX
         run: |
